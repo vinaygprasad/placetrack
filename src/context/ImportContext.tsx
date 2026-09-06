@@ -54,6 +54,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       const sheetName = workbook.SheetNames[0];
 
       if (!sheetName) {
+        setImportSummary({ imported: 0, skipped: 0, errors: ['The uploaded Excel spreadsheet is empty or has no valid sheets.'] });
         setImporting(false);
         return;
       }
@@ -62,6 +63,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       const allRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
       if (allRows.length === 0) {
+        setImportSummary({ imported: 0, skipped: 0, errors: ['No data rows found in the uploaded Excel spreadsheet.'] });
         setImporting(false);
         return;
       }
@@ -88,25 +90,46 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
           totalBatches,
         });
 
-        const res = await fetch('/api/admin/students/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            students: batchRows,
-            startRowIndex,
-          }),
-        });
+        let batchSuccess = false;
+        let retries = 3;
 
-        const data = await res.json();
-        if (res.ok && data.summary) {
-          totalImported += data.summary.imported || 0;
-          totalSkipped += data.summary.skipped || 0;
-          if (Array.isArray(data.summary.errors)) {
-            allErrors.push(...data.summary.errors);
+        while (retries > 0 && !batchSuccess) {
+          try {
+            const res = await fetch('/api/admin/students/import', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                students: batchRows,
+                startRowIndex,
+              }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.summary) {
+              totalImported += data.summary.imported || 0;
+              totalSkipped += data.summary.skipped || 0;
+              if (Array.isArray(data.summary.errors)) {
+                allErrors.push(...data.summary.errors);
+              }
+              batchSuccess = true;
+            } else {
+              retries--;
+              if (retries === 0) {
+                totalSkipped += batchRows.length;
+                allErrors.push(`Batch ${i + 1} (Rows ${startRowIndex}-${endIdx + 1}): ${data.error || 'Server error processing batch'}`);
+              } else {
+                await new Promise((r) => setTimeout(r, 1000));
+              }
+            }
+          } catch (fetchErr: any) {
+            retries--;
+            if (retries === 0) {
+              totalSkipped += batchRows.length;
+              allErrors.push(`Batch ${i + 1} (Rows ${startRowIndex}-${endIdx + 1}): Network error - ${fetchErr.message || 'Connection failed'}`);
+            } else {
+              await new Promise((r) => setTimeout(r, 1000));
+            }
           }
-        } else {
-          totalSkipped += batchRows.length;
-          allErrors.push(`Batch ${i + 1} (Rows ${startRowIndex}-${endIdx + 1}): ${data.error || 'Server error processing batch'}`);
         }
 
         setImportProgress({
@@ -117,9 +140,12 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
           totalBatches,
         });
 
-        if (onSuccess && ((i + 1) % 5 === 0 || i === totalBatches - 1)) {
+        if (onSuccess && ((i + 1) % 3 === 0 || i === totalBatches - 1)) {
           onSuccess();
         }
+
+        // Brief 100ms throttle between batches to allow event loop and DB pool to settle
+        await new Promise((r) => setTimeout(r, 100));
       }
 
       setImportSummary({
@@ -133,6 +159,11 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err: any) {
       console.error('Background import error:', err);
+      setImportSummary({
+        imported: 0,
+        skipped: 0,
+        errors: ['Import Error: ' + (err.message || String(err))],
+      });
     } finally {
       setImporting(false);
     }

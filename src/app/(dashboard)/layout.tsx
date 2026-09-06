@@ -4,8 +4,6 @@ import { redirect } from 'next/navigation';
 import { Navbar } from '@/components/common/Navbar';
 import { prisma } from '@/lib/prisma';
 
-import { ImportProvider } from '@/context/ImportContext';
-
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
 
@@ -25,20 +23,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <ImportProvider>
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
-        <Navbar
-          user={{
-            id: session.userId,
-            name: fullName || session.rollNo || session.userId,
-            fullName: fullName,
-            email: session.email,
-            role: session.role,
-            rollNo: session.rollNo || session.userId,
-          }}
-        />
-        <div className="flex-1 flex bg-slate-50 text-slate-900">{children}</div>
-      </div>
-    </ImportProvider>
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+      <Navbar
+        user={{
+          id: session.userId,
+          name: fullName || session.rollNo || session.userId,
+          fullName: fullName,
+          email: session.email,
+          role: session.role,
+          rollNo: session.rollNo || session.userId,
+        }}
+      />
+      <div className="flex-1 flex bg-slate-50 text-slate-900">{children}</div>
+    </div>
   );
 }
