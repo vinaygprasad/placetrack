@@ -80,7 +80,7 @@ export async function POST(req: Request) {
           surname: surname ? surname.trim() : null,
           name: name.trim(),
           fullNameAsPerSSC: body.fullNameAsPerSSC ? body.fullNameAsPerSSC.trim() : null,
-          gender: gender || 'Male',
+          gender: gender || null,
           branch: branch.trim(),
           mobileNo: mobileNo || '',
         },

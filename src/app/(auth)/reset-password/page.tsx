@@ -93,7 +93,7 @@ function ResetPasswordContent() {
               CHOOSE NEW PASSWORD
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Set a new, strong password for your PlaceTrack account.
+              Set a new, strong password for your account.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-5 space-y-4">

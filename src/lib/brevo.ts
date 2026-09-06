@@ -151,7 +151,7 @@ function renderEmailTemplate({
                     Training & Placement Cell • Bachupally, Nizampet Road, Hyderabad, Telangana 500090
                   </p>
                   <p style="margin: 8px 0 0 0; font-size: 10px; color: #94a3b8;">
-                    © ${new Date().getFullYear()} PlaceTrack — Student Performance & Placement Portal. All rights reserved.
+                    © ${new Date().getFullYear()} Student Performance & Placement Portal. All rights reserved.
                   </p>
                 </td>
               </tr>
@@ -177,7 +177,7 @@ export async function sendVerificationEmail(email: string, token: string, baseUr
     badgeText: 'STUDENT REGISTRATION VERIFICATION',
     title: 'Verify Your Primary Email Address',
     messageHtml: `
-      <p style="margin-top: 0;">Thank you for setting up your primary email on <strong>Student Performance — Training & Placement Portal (PlaceTrack)</strong>.</p>
+      <p style="margin-top: 0;">Thank you for setting up your primary email on <strong>Student Performance — Training & Placement Portal</strong>.</p>
       <p>Please click the button below to verify your email address and authorize your student account:</p>
     `,
     ctaText: 'Verify Email Address',

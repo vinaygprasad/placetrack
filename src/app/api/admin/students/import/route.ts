@@ -14,25 +14,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Access denied. Admin authorization required.' }, { status: 403 });
     }
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File | null;
+    const contentType = req.headers.get('content-type') || '';
+    let rows: any[] = [];
+    let startRowIndex = 2;
 
-    if (!file) {
-      return NextResponse.json({ error: 'No Excel file provided.' }, { status: 400 });
-    }
+    if (contentType.includes('application/json')) {
+      const body = await req.json();
+      if (!body.students || !Array.isArray(body.students) || body.students.length === 0) {
+        return NextResponse.json({ error: 'No student data rows provided in request body.' }, { status: 400 });
+      }
+      rows = body.students;
+      if (typeof body.startRowIndex === 'number') {
+        startRowIndex = body.startRowIndex;
+      }
+    } else {
+      const formData = await req.formData();
+      const file = formData.get('file') as File | null;
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) {
-      return NextResponse.json({ error: 'Excel sheet is empty.' }, { status: 400 });
-    }
+      if (!file) {
+        return NextResponse.json({ error: 'No Excel file provided.' }, { status: 400 });
+      }
 
-    const sheet = workbook.Sheets[sheetName];
-    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        return NextResponse.json({ error: 'Excel sheet is empty.' }, { status: 400 });
+      }
 
-    if (rows.length === 0) {
-      return NextResponse.json({ error: 'No data rows found in Excel sheet.' }, { status: 400 });
+      const sheet = workbook.Sheets[sheetName];
+      rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      if (rows.length === 0) {
+        return NextResponse.json({ error: 'No data rows found in Excel sheet.' }, { status: 400 });
+      }
     }
 
     let successCount = 0;
@@ -53,19 +68,52 @@ export async function POST(req: Request) {
       return '';
     };
 
-    // Process each student row
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const rowNum = i + 2; // 1-indexed header is row 1
+    // Pre-calculate password hashes in parallel for maximum speed
+    const preparedRows = await Promise.all(
+      rows.map(async (row, i) => {
+        const rowNum = startRowIndex + i;
 
-      const rollNo = findValue(row, ['roll', 'rollno', 'rollnumber', 'studentrollno']);
-      const rawFullName = findValue(row, ['fullname', 'full_name', 'name', 'studentname', 'nameofthecandidate']);
-      const rawGivenName = findValue(row, ['givenname', 'firstname', 'first_name', 'given_name']);
-      const rawSurname = findValue(row, ['surname', 'lastname', 'last_name']);
-      const rawPassword = findValue(row, ['password', 'pass']);
-      const deptRaw = findValue(row, ['dept', 'department', 'branch']);
-      const sectionRaw = findValue(row, ['section', 'sec', 'studentsection']);
-      const academicYear = findValue(row, ['academicyear', 'year', 'batch']);
+        const rollNo = findValue(row, ['roll', 'rollno', 'rollnumber', 'studentrollno']);
+        const rawFullName = findValue(row, ['fullname', 'full_name', 'name', 'studentname', 'nameofthecandidate']);
+        const rawGivenName = findValue(row, ['givenname', 'firstname', 'first_name', 'given_name']);
+        const rawSurname = findValue(row, ['surname', 'lastname', 'last_name']);
+        const rawPassword = findValue(row, ['password', 'pass']);
+        const deptRaw = findValue(row, ['dept', 'department', 'branch']);
+        const sectionRaw = findValue(row, ['section', 'sec', 'studentsection']);
+        const academicYear = findValue(row, ['academicyear', 'year', 'batch']);
+
+        const passwordToHash = rawPassword || `${rollNo}@123`;
+        const passwordHash = rollNo ? await bcrypt.hash(passwordToHash, 10) : '';
+
+        return {
+          row,
+          rowNum,
+          rollNo,
+          rawFullName,
+          rawGivenName,
+          rawSurname,
+          rawPassword,
+          deptRaw,
+          sectionRaw,
+          academicYear,
+          passwordHash,
+        };
+      })
+    );
+
+    // Process each student row sequentially in DB
+    for (const item of preparedRows) {
+      const {
+        rowNum,
+        rollNo,
+        rawFullName,
+        rawGivenName,
+        rawSurname,
+        deptRaw,
+        sectionRaw,
+        academicYear,
+        passwordHash,
+      } = item;
 
       const section = sectionRaw
         ? sectionRaw.replace(/^sec(tion)?\s*/i, '').trim().toUpperCase()
@@ -99,8 +147,6 @@ export async function POST(req: Request) {
         continue;
       }
 
-      const passwordToHash = rawPassword || `${rollNo}@123`;
-      const passwordHash = await bcrypt.hash(passwordToHash, 10);
       const cleanYear = academicYear.trim();
 
       try {
@@ -149,7 +195,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully imported ${successCount} student accounts (${skippedCount} skipped).`,
+      message: `Successfully processed ${rows.length} rows (${successCount} created, ${skippedCount} skipped).`,
       summary: {
         imported: successCount,
         skipped: skippedCount,

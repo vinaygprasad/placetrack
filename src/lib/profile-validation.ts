@@ -37,6 +37,7 @@ export const MANDATORY_PROFILE_FIELDS = [
   // Family Details
   { key: 'fatherName', label: "Father's Name", tab: 'family' },
   { key: 'motherName', label: "Mother's Name", tab: 'family' },
+  { key: 'motherMaidenName', label: "Mother's Maiden Name (Surname)", tab: 'family' },
 
   // Address & Identification
   { key: 'hometown', label: 'Hometown', tab: 'address' },

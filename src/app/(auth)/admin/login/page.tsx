@@ -44,7 +44,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      setSuccessMsg('Admin authentication successful! Redirecting to Placement Analytics...');
+      setSuccessMsg('Auth success redirecting...');
       setTimeout(() => {
         router.push('/admin/dashboard');
         router.refresh();

@@ -265,7 +265,7 @@ export async function POST(req: Request) {
           surname: surNameVal,
           fullName: derivedFullName,
           fullNameAsPerSSC: derivedFullNameSSC,
-          gender: gender || 'Male',
+          gender: gender || null,
           branch: normalizedBranch,
           section: section ? section.replace(/^sec(tion)?\s*/i, '').trim().toUpperCase() : null,
           mobileNo: mobileNo || '',

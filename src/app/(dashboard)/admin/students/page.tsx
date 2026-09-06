@@ -38,7 +38,8 @@ import {
   Building2,
   Briefcase,
   DollarSign,
-  Calendar,
+  ChevronUp,
+  ChevronDown,
   Loader2,
   CheckSquare,
 } from 'lucide-react';
@@ -131,6 +132,21 @@ export default function AdminStudentsPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<any | null>(null);
+  const [isWidgetMinimized, setIsWidgetMinimized] = useState(false);
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [importProgress, setImportProgress] = useState<{
+    percentage: number;
+    processed: number;
+    total: number;
+    currentBatch: number;
+    totalBatches: number;
+  }>({
+    percentage: 0,
+    processed: 0,
+    total: 0,
+    currentBatch: 0,
+    totalBatches: 0,
+  });
 
   // Submit Individual Student Account Registration Form
   const handleAddStudentSubmit = async (e: React.FormEvent) => {
@@ -327,33 +343,106 @@ export default function AdminStudentsPage() {
     XLSX.writeFile(workbook, 'VNRVJIET_Student_Import_Template.xlsx');
   };
 
-  // Upload Excel file for Bulk Import with Loader
+  // Upload Excel file for Bulk Import with Background Floating Widget
   const handleImportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!importFile) return;
 
+    // Immediately close modal & launch background progress widget
+    setIsImportModalOpen(false);
     setImporting(true);
     setImportSummary(null);
-
-    const formDataPayload = new FormData();
-    formDataPayload.append('file', importFile);
+    setIsWidgetMinimized(false);
+    setImportProgress({ percentage: 0, processed: 0, total: 0, currentBatch: 0, totalBatches: 0 });
 
     try {
-      const res = await fetch('/api/admin/students/import', {
-        method: 'POST',
-        body: formDataPayload,
+      // Read Excel file buffer in browser
+      const buffer = await importFile.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+
+      if (!sheetName) {
+        showAlert('The uploaded Excel spreadsheet is empty.', 'error', 'Import Error');
+        setImporting(false);
+        return;
+      }
+
+      const sheet = workbook.Sheets[sheetName];
+      const allRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      if (allRows.length === 0) {
+        showAlert('No data rows found in the uploaded Excel sheet.', 'error', 'Import Error');
+        setImporting(false);
+        return;
+      }
+
+      const totalRows = allRows.length;
+      const BATCH_SIZE = 20; // 20 rows per batch ensures fast execution (<1.5s) per request
+      const totalBatches = Math.ceil(totalRows / BATCH_SIZE);
+
+      let totalImported = 0;
+      let totalSkipped = 0;
+      const allErrors: string[] = [];
+
+      for (let i = 0; i < totalBatches; i++) {
+        const startIdx = i * BATCH_SIZE;
+        const endIdx = Math.min(startIdx + BATCH_SIZE, totalRows);
+        const batchRows = allRows.slice(startIdx, endIdx);
+        const startRowIndex = startIdx + 2; // Row 1 is header
+
+        setImportProgress({
+          percentage: Math.round((startIdx / totalRows) * 100),
+          processed: startIdx,
+          total: totalRows,
+          currentBatch: i + 1,
+          totalBatches,
+        });
+
+        const res = await fetch('/api/admin/students/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            students: batchRows,
+            startRowIndex,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.summary) {
+          totalImported += data.summary.imported || 0;
+          totalSkipped += data.summary.skipped || 0;
+          if (Array.isArray(data.summary.errors)) {
+            allErrors.push(...data.summary.errors);
+          }
+        } else {
+          totalSkipped += batchRows.length;
+          allErrors.push(`Batch ${i + 1} (Rows ${startRowIndex}-${endIdx + 1}): ${data.error || 'Server error processing batch'}`);
+        }
+
+        setImportProgress({
+          percentage: Math.round((endIdx / totalRows) * 100),
+          processed: endIdx,
+          total: totalRows,
+          currentBatch: i + 1,
+          totalBatches,
+        });
+
+        // Refresh table every 5 batches so newly added students appear live in background
+        if ((i + 1) % 5 === 0 || i === totalBatches - 1) {
+          fetchStudents();
+        }
+      }
+
+      setImportSummary({
+        imported: totalImported,
+        skipped: totalSkipped,
+        errors: allErrors,
       });
 
-      const data = await res.json();
-      if (res.ok) {
-        setImportSummary(data);
-        fetchStudents();
-        showAlert(`Successfully imported ${data.imported} student records.`, 'success', 'Import Successful');
-      } else {
-        showAlert(data.error || 'Failed to import student accounts.', 'error', 'Import Failed');
-      }
-    } catch (e) {
-      showAlert('Error connecting to import server.', 'error', 'Import Error');
+      fetchStudents();
+    } catch (err: any) {
+      console.error('Import error:', err);
+      showAlert('Error during background Excel import: ' + err.message, 'error', 'Import Error');
     } finally {
       setImporting(false);
     }
@@ -376,7 +465,7 @@ export default function AdminStudentsPage() {
       fullNameAsPerSSC: student.fullNameAsPerSSC || '',
       surname: student.surname || '',
       name: student.name || '',
-      gender: student.gender || 'Male',
+      gender: student.gender || '',
       dob: student.dob ? new Date(student.dob).toISOString().slice(0, 10) : '',
       branch: student.branch || '',
       section: student.section || '',
@@ -1961,6 +2050,7 @@ export default function AdminStudentsPage() {
                           onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
                           className="w-full h-10 rounded-lg border border-slate-300 bg-slate-50 px-2 text-slate-900 font-medium"
                         >
+                          <option value="">-- Select Gender --</option>
                           <option value="Male">Male</option>
                           <option value="Female">Female</option>
                           <option value="Other">Other</option>
@@ -2523,7 +2613,7 @@ export default function AdminStudentsPage() {
         </div>
       )}
 
-      {/* BULK EXCEL IMPORT MODAL WITH PROMINENT ANIMATED LOADER */}
+      {/* BULK EXCEL IMPORT MODAL */}
       {isImportModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xl space-y-4 p-6 text-slate-900 relative">
@@ -2535,160 +2625,267 @@ export default function AdminStudentsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                disabled={importing}
                 onClick={() => {
                   setIsImportModalOpen(false);
-                  setImportFile(null);
-                  setImportSummary(null);
                 }}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            {importing ? (
-              <div className="py-10 flex flex-col items-center justify-center text-center space-y-4 animate-fade-in">
-                <div className="relative">
-                  <div className="h-16 w-16 rounded-full border-4 border-blue-100 border-t-[#1e3a8a] animate-spin" />
-                  <FileSpreadsheet className="h-6 w-6 text-[#1e3a8a] absolute inset-0 m-auto" />
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Upload an Excel spreadsheet with columns: <span className="font-bold text-[#1e3a8a]">Roll No</span>,{' '}
+              <span className="font-bold text-[#1e3a8a]">Full Name</span>,{' '}
+              <span className="font-bold text-[#1e3a8a]">Dept</span>,{' '}
+              <span className="font-bold text-[#1e3a8a]">Section</span>, and{' '}
+              <span className="font-bold text-[#1e3a8a]">Academic Year</span>.
+            </p>
+
+            <div className="flex justify-start">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadTemplate}
+                className="gap-2 border-slate-300 text-slate-700 hover:text-slate-900 font-bold text-xs"
+              >
+                <Download className="h-4 w-4 text-emerald-600" />
+                Download Excel Template
+              </Button>
+            </div>
+
+            <form onSubmit={handleImportSubmit} className="space-y-4 pt-2">
+              {!importFile ? (
+                <label className="border-2 border-dashed border-slate-300 hover:border-[#1e3a8a] rounded-xl p-6 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/50 transition-colors cursor-pointer group">
+                  <Input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)}
+                    required
+                    className="hidden"
+                  />
+                  <div className="h-12 w-12 rounded-full bg-blue-100 group-hover:bg-blue-200 text-[#1e3a8a] flex items-center justify-center mb-3 transition-colors">
+                    <UploadCloud className="h-6 w-6" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 group-hover:text-[#1e3a8a]">
+                    Click to select Excel file
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Supports .xlsx and .xls formats</p>
+                </label>
+              ) : (
+                <div className="border-2 border-emerald-300/80 bg-emerald-50/70 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 shrink-0 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                      <FileSpreadsheet className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-slate-900 truncate">{importFile.name}</p>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                          <CheckCircle2 className="h-3 w-3" /> Ready
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {(importFile.size / 1024).toFixed(1)} KB • Click "Start Import" below to run in background
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setImportFile(null);
+                      setImportSummary(null);
+                    }}
+                    className="text-slate-500 hover:text-red-600 hover:bg-red-50 text-xs font-semibold gap-1 shrink-0 ml-2"
+                  >
+                    <X className="h-4 w-4" />
+                    Change File
+                  </Button>
                 </div>
-                <div className="space-y-1">
-                  <h4 className="font-extrabold text-slate-900 text-base">Importing Student Records...</h4>
-                  <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                    Please hold on while student accounts, credentials, and placement records are created in database. Do not close this window.
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="text-slate-600 font-bold text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!importFile || importing}
+                  variant="gradient"
+                  size="sm"
+                  className="font-bold text-xs gap-1.5 px-5"
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  Start Background Import
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BOTTOM RIGHT FLOATING BACKGROUND IMPORT PROGRESS WIDGET */}
+      {(importing || importSummary) && (
+        <div className="fixed bottom-6 right-6 z-50 transition-all duration-300 ease-in-out">
+          <div className="w-80 sm:w-96 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden text-slate-900 border-t-4 border-t-[#1e3a8a]">
+            {/* Widget Header */}
+            <div className="flex items-center justify-between p-3.5 bg-slate-50 border-b border-slate-100">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 rounded-lg bg-blue-100 text-[#1e3a8a] flex items-center justify-center shrink-0">
+                  {importing ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-[#1e3a8a]" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-extrabold text-xs text-slate-900 truncate">
+                    {importing ? 'Importing Student Accounts...' : 'Import Task Completed'}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-semibold truncate">
+                    {importing
+                      ? `Batch ${importProgress.currentBatch}/${importProgress.totalBatches} (${importProgress.processed}/${importProgress.total})`
+                      : `${importSummary?.imported || 0} Created • ${importSummary?.skipped || 0} Skipped`}
                   </p>
                 </div>
               </div>
-            ) : (
-              <>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Upload an Excel spreadsheet with columns: <span className="font-bold text-[#1e3a8a]">Roll No</span>,{' '}
-                  <span className="font-bold text-[#1e3a8a]">Full Name</span>,{' '}
-                  <span className="font-bold text-[#1e3a8a]">Dept</span>,{' '}
-                  <span className="font-bold text-[#1e3a8a]">Section</span>, and{' '}
-                  <span className="font-bold text-[#1e3a8a]">Academic Year</span>.
-                </p>
 
-                <div className="flex justify-start">
-                  <Button
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsWidgetMinimized(!isWidgetMinimized)}
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-colors"
+                  title={isWidgetMinimized ? 'Expand Widget' : 'Minimize Widget'}
+                >
+                  {isWidgetMinimized ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+                {!importing && (
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadTemplate}
-                    className="gap-2 border-slate-300 text-slate-700 hover:text-slate-900 font-bold text-xs"
+                    onClick={() => {
+                      setImportSummary(null);
+                      setImportFile(null);
+                    }}
+                    className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Dismiss notification"
                   >
-                    <Download className="h-4 w-4 text-emerald-600" />
-                    Download Excel Template
-                  </Button>
-                </div>
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
 
-                <form onSubmit={handleImportSubmit} className="space-y-4 pt-2">
-                  {!importFile ? (
-                    <label className="border-2 border-dashed border-slate-300 hover:border-[#1e3a8a] rounded-xl p-6 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/50 transition-colors cursor-pointer group">
-                      <Input
-                        type="file"
-                        accept=".xlsx, .xls"
-                        onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)}
-                        required
-                        className="hidden"
+            {/* Widget Body (Expanded) */}
+            {!isWidgetMinimized && (
+              <div className="p-4 space-y-3">
+                {importing ? (
+                  <>
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-slate-600">Overall Progress</span>
+                      <span className="text-[#1e3a8a] text-sm">{importProgress.percentage}%</span>
+                    </div>
+
+                    {/* Animated Progress Bar */}
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200 p-0.5">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#1e3a8a] to-blue-500 rounded-full transition-all duration-300 ease-out shadow-sm"
+                        style={{ width: `${importProgress.percentage}%` }}
                       />
-                      <div className="h-12 w-12 rounded-full bg-blue-100 group-hover:bg-blue-200 text-[#1e3a8a] flex items-center justify-center mb-3 transition-colors">
-                        <UploadCloud className="h-6 w-6" />
+                    </div>
+
+                    <div className="flex justify-between text-[10px] text-slate-400 font-semibold">
+                      <span>0%</span>
+                      <span>{importProgress.processed} / {importProgress.total} Records</span>
+                      <span>100%</span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 italic bg-blue-50/60 p-2 rounded-lg border border-blue-100">
+                      ⚡ You can browse, search, and edit records while import runs in background!
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-emerald-800">Accounts Created:</span>
+                        <span className="text-emerald-700">{importSummary?.imported || 0}</span>
                       </div>
-                      <p className="text-sm font-bold text-slate-800 group-hover:text-[#1e3a8a]">
-                        Click to select Excel file
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">Supports .xlsx and .xls formats</p>
-                    </label>
-                  ) : (
-                    <div className="border-2 border-emerald-300/80 bg-emerald-50/70 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-10 w-10 shrink-0 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                          <FileSpreadsheet className="h-5 w-5" />
+                      {importSummary?.skipped > 0 && (
+                        <div className="flex items-center justify-between font-semibold text-amber-800">
+                          <span>Skipped / Failed:</span>
+                          <span>{importSummary.skipped}</span>
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-slate-900 truncate">{importFile.name}</p>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-                              <CheckCircle2 className="h-3 w-3" /> Ready
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {(importFile.size / 1024).toFixed(1)} KB • Click "Start Import" below to proceed
-                          </p>
-                        </div>
-                      </div>
+                      )}
+                    </div>
+
+                    {importSummary?.errors && importSummary.errors.length > 0 && (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setImportFile(null);
-                          setImportSummary(null);
-                        }}
-                        className="text-slate-500 hover:text-red-600 hover:bg-red-50 text-xs font-semibold gap-1 shrink-0 ml-2"
+                        onClick={() => setShowLogModal(true)}
+                        className="w-full text-xs font-bold text-slate-700 border-slate-300 hover:bg-slate-50 gap-1.5"
                       >
-                        <X className="h-4 w-4" />
-                        Change File
+                        <FileText className="h-3.5 w-3.5 text-amber-600" />
+                        View Error Log ({importSummary.errors.length})
                       </Button>
-                    </div>
-                  )}
-
-                  {importSummary && (
-                    <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 space-y-1">
-                      <p className="font-bold">Import Completed!</p>
-                      <p>Successfully Created: {importSummary.imported} accounts</p>
-                      {importSummary.skipped > 0 && <p className="text-amber-700 font-semibold">Skipped/Failed: {importSummary.skipped}</p>}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-end gap-3 pt-2">
-                    {importSummary ? (
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          setIsImportModalOpen(false);
-                          setImportFile(null);
-                          setImportSummary(null);
-                        }}
-                        variant="gradient"
-                        size="sm"
-                        className="font-bold text-xs gap-1.5 px-6"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Done
-                      </Button>
-                    ) : (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setIsImportModalOpen(false);
-                            setImportFile(null);
-                            setImportSummary(null);
-                          }}
-                          className="text-slate-600 font-bold text-xs"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={!importFile || importing}
-                          variant="gradient"
-                          size="sm"
-                          className="font-bold text-xs gap-1.5 px-5"
-                        >
-                          <UploadCloud className="h-4 w-4" />
-                          Start Import
-                        </Button>
-                      </>
                     )}
-                  </div>
-                </form>
-              </>
+                  </>
+                )}
+              </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ERROR LOG MODAL */}
+      {showLogModal && importSummary && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xl space-y-4 p-6 text-slate-900 relative">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 font-bold text-amber-700 text-base">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                Import Log & Skipped Records
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowLogModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              The following rows could not be imported because they were duplicates or missing required fields:
+            </p>
+
+            <div className="max-h-60 overflow-y-auto p-3 bg-slate-900 text-amber-300 rounded-xl text-xs font-mono space-y-1 shadow-inner border border-slate-800">
+              {importSummary.errors?.map((err: string, i: number) => (
+                <div key={i} className="leading-relaxed border-b border-slate-800/60 pb-1 last:border-b-0">
+                  {err}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button
+                variant="gradient"
+                size="sm"
+                onClick={() => setShowLogModal(false)}
+                className="font-bold text-xs px-6"
+              >
+                Close Log
+              </Button>
+            </div>
           </div>
         </div>
       )}

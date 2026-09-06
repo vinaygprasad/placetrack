@@ -63,7 +63,7 @@ export default function StudentProfilePage() {
             fullNameAsPerSSC: s.fullNameAsPerSSC || '',
             name: s.name || '',
             surname: s.surname || '',
-            gender: s.gender || 'Male',
+            gender: s.gender || '',
             dob: s.dob ? new Date(s.dob).toISOString().slice(0, 10) : '',
             mobileNo: s.mobileNo || '',
             altEmail: s.altEmail || '',
@@ -460,6 +460,7 @@ export default function StudentProfilePage() {
                     className="flex h-10 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-800 disabled:opacity-80 disabled:cursor-not-allowed"
                     required
                   >
+                    <option value="">-- Select Gender --</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>

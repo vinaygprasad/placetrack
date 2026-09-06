@@ -53,7 +53,7 @@ export default function StudentLoginPage() {
         return;
       }
 
-      setSuccessMsg('Login successful! Redirecting to My Profile...');
+      setSuccessMsg('Auth success redirecting...');
       setTimeout(() => {
         router.push('/student/profile');
         router.refresh();
