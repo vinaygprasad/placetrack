@@ -158,7 +158,7 @@ export async function GET(req: Request) {
       }
     });
 
-    const availableYears = Array.from(yearSet).sort();
+    const availableYears = Array.from(yearSet).sort((a, b) => b.localeCompare(a));
     const availableSections = Array.from(secSet).sort();
 
     return NextResponse.json({

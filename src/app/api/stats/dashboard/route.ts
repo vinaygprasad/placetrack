@@ -46,7 +46,7 @@ export async function GET(req: Request) {
         yearSet.add(y.academicYear.trim());
       }
     });
-    const availableYears = Array.from(yearSet).sort();
+    const availableYears = Array.from(yearSet).sort((a, b) => b.localeCompare(a));
 
     const secSet = new Set<string>();
     dbSections.forEach((s) => {
