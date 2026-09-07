@@ -9,7 +9,7 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertModal } from '@/components/ui/alert-modal';
 import { maskPan, maskAadhar, formatPackage, formatDate, getOfferLetterViewUrl, getOfferLetterDownloadUrl } from '@/lib/utils';
 import { DEPARTMENTS } from '@/lib/constants';
-import { useImport } from '@/context/ImportContext';
+import { useImport, ImportProvider } from '@/context/ImportContext';
 import * as XLSX from 'xlsx';
 import {
   Search,
@@ -51,7 +51,7 @@ const CATEGORIES = ['General / OC', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'SC'
 type TabType = 'personal' | 'academic' | 'family' | 'address' | 'placement';
 type ExportScope = 'all' | 'filtered' | 'selected';
 
-export default function AdminStudentsPage() {
+function AdminStudentsPageContent() {
   const [students, setStudents] = useState<any[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [tableFetching, setTableFetching] = useState(false);
@@ -2771,5 +2771,13 @@ export default function AdminStudentsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminStudentsPage() {
+  return (
+    <ImportProvider>
+      <AdminStudentsPageContent />
+    </ImportProvider>
   );
 }
