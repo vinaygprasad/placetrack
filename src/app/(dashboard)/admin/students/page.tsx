@@ -1861,30 +1861,23 @@ export default function AdminStudentsPage() {
                         <Input
                           value={editFormData.id}
                           onChange={(e) => setEditFormData({ ...editFormData, id: e.target.value })}
-                          required
                           className="bg-slate-50 border-slate-300 font-mono"
                         />
                       </div>
                       <div>
-                        <label className="text-slate-700 font-bold block mb-1">
-                          Full Name <span className="text-red-600 font-bold">*</span>
-                        </label>
+                        <label className="text-slate-700 font-bold block mb-1">Full Name</label>
                         <Input
                           value={editFormData.fullName || ''}
                           onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
-                          required
                           placeholder="e.g. Rahul Kumar Sharma"
                           className="bg-slate-50 border-slate-300"
                         />
                       </div>
                       <div>
-                        <label className="text-slate-700 font-bold block mb-1">
-                          Full Name (As Per SSC) <span className="text-red-600 font-bold">*</span>
-                        </label>
+                        <label className="text-slate-700 font-bold block mb-1">Full Name (As Per SSC)</label>
                         <Input
                           value={editFormData.fullNameAsPerSSC || ''}
                           onChange={(e) => setEditFormData({ ...editFormData, fullNameAsPerSSC: e.target.value, fullNameSSC: e.target.value })}
-                          required
                           placeholder="e.g. SHARMA RAHUL KUMAR"
                           className="bg-slate-50 border-slate-300"
                         />

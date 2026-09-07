@@ -54,16 +54,14 @@ export async function POST(req: Request) {
     let skippedCount = 0;
     const errors: string[] = [];
 
-    // Helper to find header key ignoring case and punctuation
-    const findValue = (row: any, keys: string[]): string => {
+    // Helper to extract value by exact template column name
+    const getValue = (row: any, key: string): string => {
       const rowKeys = Object.keys(row);
-      for (const k of keys) {
-        const matchKey = rowKeys.find(
-          (rk) => rk.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, '')
-        );
-        if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null) {
-          return String(row[matchKey]).trim();
-        }
+      const matchKey = rowKeys.find(
+        (rk) => rk.trim().toLowerCase() === key.toLowerCase()
+      );
+      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null) {
+        return String(row[matchKey]).trim();
       }
       return '';
     };
@@ -73,26 +71,20 @@ export async function POST(req: Request) {
       rows.map(async (row, i) => {
         const rowNum = startRowIndex + i;
 
-        const rollNo = findValue(row, ['roll', 'rollno', 'rollnumber', 'studentrollno']);
-        const rawFullName = findValue(row, ['fullname', 'full_name', 'name', 'studentname', 'nameofthecandidate']);
-        const rawGivenName = findValue(row, ['givenname', 'firstname', 'first_name', 'given_name']);
-        const rawSurname = findValue(row, ['surname', 'lastname', 'last_name']);
-        const rawPassword = findValue(row, ['password', 'pass']);
-        const deptRaw = findValue(row, ['dept', 'department', 'branch']);
-        const sectionRaw = findValue(row, ['section', 'sec', 'studentsection']);
-        const academicYear = findValue(row, ['academicyear', 'year', 'batch']);
+        const rollNo = getValue(row, 'Roll No');
+        const fullName = getValue(row, 'Full Name');
+        const deptRaw = getValue(row, 'Dept');
+        const sectionRaw = getValue(row, 'Section');
+        const academicYear = getValue(row, 'Academic Year');
+        const rawPassword = getValue(row, 'Password');
 
         const passwordToHash = rawPassword || `${rollNo}@123`;
         const passwordHash = rollNo ? await bcrypt.hash(passwordToHash, 10) : '';
 
         return {
-          row,
           rowNum,
           rollNo,
-          rawFullName,
-          rawGivenName,
-          rawSurname,
-          rawPassword,
+          fullName,
           deptRaw,
           sectionRaw,
           academicYear,
@@ -106,35 +98,24 @@ export async function POST(req: Request) {
       const {
         rowNum,
         rollNo,
-        rawFullName,
-        rawGivenName,
-        rawSurname,
+        fullName,
         deptRaw,
         sectionRaw,
         academicYear,
         passwordHash,
       } = item;
 
-      const section = sectionRaw
-        ? sectionRaw.replace(/^sec(tion)?\s*/i, '').trim().toUpperCase()
-        : null;
-
-      const fullNameCandidate = rawFullName
-        ? rawFullName.trim()
-        : rawGivenName
-        ? `${rawGivenName.trim()} ${rawSurname ? rawSurname.trim() : ''}`.trim()
-        : '';
-
-      if (!rollNo || !fullNameCandidate || !deptRaw || !academicYear) {
+      if (!rollNo || !fullName || !deptRaw || !academicYear) {
         errors.push(
-          `Row ${rowNum}: Skipped - Missing required field(s). Roll Number, Name, Department (Dept), and Academic Year are required.`
+          `Row ${rowNum}: Skipped - Missing required field(s). Roll Number, Full Name, Department (Dept), and Academic Year are required.`
         );
         skippedCount++;
         continue;
       }
 
-      const givenName = rawGivenName ? rawGivenName.trim() : '';
-      const surname = rawSurname ? rawSurname.trim() : null;
+      const section = sectionRaw
+        ? sectionRaw.replace(/^sec(tion)?\s*/i, '').trim().toUpperCase()
+        : null;
 
       // Standardize Department / Branch match
       const matchedDept = DEPARTMENTS.find(
@@ -170,16 +151,12 @@ export async function POST(req: Request) {
             },
           });
 
-          const derivedFullName = fullNameCandidate;
           const student = await tx.student.create({
             data: {
               id: rollNo,
               userRole: 'STUDENT',
               academicYear: cleanYear,
-              fullName: derivedFullName,
-              name: null,
-              surname: null,
-              fullNameAsPerSSC: null,
+              fullName,
               branch,
               section,
             },

@@ -48,7 +48,7 @@ model Student {
   name                   String?
   fullName               String?
   fullNameAsPerSSC       String?
-  gender                 String?   @default("Male")
+  gender                 String?
   dob                    DateTime?
   branch                 String
   section                String?   // e.g. "A", "B", "C", "D"
