@@ -5,9 +5,9 @@ export const metadata: Metadata = {
   title: 'Student Performance — Training & Placement',
   description: 'Vallurupalli Nageswara Rao Vignana Jyothi Institute of Engineering & Technology — Student Performance and Training & Placement Data Management System.',
   icons: {
-    icon: '/vnrvjiet-full-logo.png',
-    shortcut: '/vnrvjiet-full-logo.png',
-    apple: '/vnrvjiet-full-logo.png',
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
   },
 };
 

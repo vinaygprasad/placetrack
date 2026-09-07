@@ -14,6 +14,11 @@ export async function POST(req: Request) {
       );
     }
 
+    // Auto-clean expired password reset tokens from database
+    prisma.passwordResetToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    }).catch(() => {});
+
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const resetRecord = await prisma.passwordResetToken.findUnique({
@@ -25,25 +30,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid or expired password reset token.' }, { status: 400 });
     }
 
-    if (resetRecord.usedAt) {
-      return NextResponse.json({ error: 'This password reset token has already been used.' }, { status: 400 });
-    }
-
     if (resetRecord.expiresAt < new Date()) {
+      await prisma.passwordResetToken.delete({ where: { id: resetRecord.id } }).catch(() => {});
       return NextResponse.json({ error: 'Password reset token has expired. Please request a new one.' }, { status: 400 });
     }
 
     const newPasswordHash = await hashPassword(newPassword);
 
-    // Update password & invalidate token inside transaction
+    // Update password & delete used token inside transaction
     await prisma.$transaction([
       prisma.user.update({
         where: { id: resetRecord.userId },
         data: { passwordHash: newPasswordHash },
       }),
-      prisma.passwordResetToken.update({
+      prisma.passwordResetToken.delete({
         where: { id: resetRecord.id },
-        data: { usedAt: new Date() },
       }),
     ]);
 

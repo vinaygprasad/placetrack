@@ -10,6 +10,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Verification token is required.' }, { status: 400 });
     }
 
+    // Auto-clean any expired email verification tokens from the database
+    prisma.emailVerificationToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    }).catch(() => {});
+
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const record = await prisma.emailVerificationToken.findUnique({
@@ -21,11 +26,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid or expired verification token.' }, { status: 400 });
     }
 
-    if (record.verifiedAt) {
-      return NextResponse.json({ message: 'Email address has already been verified.', verified: true });
-    }
-
     if (record.expiresAt < new Date()) {
+      await prisma.emailVerificationToken.delete({ where: { id: record.id } }).catch(() => {});
       return NextResponse.json({ error: 'Verification token has expired. Please request a new link.' }, { status: 400 });
     }
 
@@ -41,9 +43,9 @@ export async function POST(req: Request) {
           firstLogin: false,
         },
       }),
-      prisma.emailVerificationToken.update({
+      // Delete token once verified
+      prisma.emailVerificationToken.delete({
         where: { id: record.id },
-        data: { verifiedAt: new Date() },
       }),
     ]);
 
