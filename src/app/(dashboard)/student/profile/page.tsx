@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { DEPARTMENTS } from '@/lib/constants';
 import { checkStudentProfileCompleteness } from '@/lib/profile-validation';
+import { SensitiveField } from '@/components/ui/sensitive-field';
 import {
   User,
   GraduationCap,
@@ -1086,25 +1087,45 @@ export default function StudentProfilePage() {
                   <label className="text-slate-700 font-bold block mb-1">
                     PAN Number
                   </label>
-                  <Input
-                    placeholder="Apply immediately if not having"
-                    value={addressData.panNumber}
-                    onChange={(e) => setAddressData({ ...addressData, panNumber: e.target.value })}
-                    disabled={!isEditingAddress}
-                    className="bg-slate-50 border-slate-300"
-                  />
+                  {isEditingAddress ? (
+                    <SensitiveField
+                      type="pan"
+                      mode="edit"
+                      value={addressData.panNumber}
+                      onChange={(val) => setAddressData({ ...addressData, panNumber: val })}
+                      placeholder="Apply immediately if not having"
+                    />
+                  ) : (
+                    <div className="py-2.5 px-3 rounded-lg bg-slate-50 border border-slate-300 min-h-[38px] flex items-center">
+                      <SensitiveField
+                        type="pan"
+                        mode="view"
+                        value={addressData.panNumber}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-slate-700 font-bold block mb-1">
                     Aadhar Card Number
                   </label>
-                  <Input
-                    placeholder="Apply immediately if not having"
-                    value={addressData.aadharNumber}
-                    onChange={(e) => setAddressData({ ...addressData, aadharNumber: e.target.value })}
-                    disabled={!isEditingAddress}
-                    className="bg-slate-50 border-slate-300"
-                  />
+                  {isEditingAddress ? (
+                    <SensitiveField
+                      type="aadhar"
+                      mode="edit"
+                      value={addressData.aadharNumber}
+                      onChange={(val) => setAddressData({ ...addressData, aadharNumber: val })}
+                      placeholder="Apply immediately if not having"
+                    />
+                  ) : (
+                    <div className="py-2.5 px-3 rounded-lg bg-slate-50 border border-slate-300 min-h-[38px] flex items-center">
+                      <SensitiveField
+                        type="aadhar"
+                        mode="view"
+                        value={addressData.aadharNumber}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

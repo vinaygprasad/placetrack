@@ -6,19 +6,33 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Mask PAN Number: e.g., ABCDE1234F -> ABCDE****F
+ * Mask PAN Number: e.g., ABCDE1234F -> ABCDE****F or ABCDXXXXF
  */
 export function maskPan(pan?: string | null): string {
-  if (!pan || pan.length < 10) return "N/A";
-  return `${pan.slice(0, 5)}****${pan.slice(9)}`;
+  if (!pan || pan.trim().length === 0) return "N/A";
+  const clean = pan.trim();
+  if (clean.length >= 10) {
+    return `${clean.slice(0, 5)}****${clean.slice(9)}`;
+  }
+  if (clean.length >= 4) {
+    return `${clean.slice(0, 4)}XXXX`;
+  }
+  return "XXXX";
 }
 
 /**
- * Mask Aadhar Number: e.g., 123456789012 -> ********9012
+ * Mask Aadhar Number: e.g., 532543343512 -> 5325XXXX3512 or 5325XXXX
  */
 export function maskAadhar(aadhar?: string | null): string {
-  if (!aadhar || aadhar.length < 12) return "N/A";
-  return `********${aadhar.slice(8)}`;
+  if (!aadhar || aadhar.trim().length === 0) return "N/A";
+  const clean = aadhar.trim();
+  if (clean.length >= 12) {
+    return `${clean.slice(0, 4)}XXXX${clean.slice(8)}`;
+  }
+  if (clean.length >= 4) {
+    return `${clean.slice(0, 4)}XXXX`;
+  }
+  return "XXXX";
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { DEPARTMENTS } from '@/lib/constants';
+import { encryptSensitive } from '@/lib/encryption';
 import bcrypt from 'bcryptjs';
 import * as XLSX from 'xlsx';
 
@@ -81,6 +82,11 @@ export async function POST(req: Request) {
         const passwordToHash = rawPassword || `${rollNo}@123`;
         const passwordHash = rollNo ? await bcrypt.hash(passwordToHash, 10) : '';
 
+        const panRaw = getValue(row, 'PAN Number') || getValue(row, 'PAN') || getValue(row, 'PAN Card Number');
+        const aadharRaw = getValue(row, 'Aadhar Card Number') || getValue(row, 'Aadhar Number') || getValue(row, 'Aadhar');
+        const panNumber = panRaw ? encryptSensitive(panRaw) : null;
+        const aadharNumber = aadharRaw ? encryptSensitive(aadharRaw) : null;
+
         return {
           rowNum,
           rollNo,
@@ -89,6 +95,8 @@ export async function POST(req: Request) {
           sectionRaw,
           academicYear,
           passwordHash,
+          panNumber,
+          aadharNumber,
         };
       })
     );
@@ -103,6 +111,8 @@ export async function POST(req: Request) {
         sectionRaw,
         academicYear,
         passwordHash,
+        panNumber,
+        aadharNumber,
       } = item;
 
       if (!rollNo || !fullName || !deptRaw || !academicYear) {
@@ -159,6 +169,8 @@ export async function POST(req: Request) {
               fullName,
               branch,
               section,
+              panNumber,
+              aadharNumber,
             },
           });
 

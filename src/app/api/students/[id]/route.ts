@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireStudentOwnership, requireAuth, sanitizeStudentSelfUpdateData } from '@/lib/auth';
 import { Role } from '@prisma/client';
 import { sendVerificationEmail } from '@/lib/brevo';
+import { decryptStudentSensitiveData, encryptStudentSensitiveData } from '@/lib/encryption';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,9 @@ export async function GET(
       return NextResponse.json({ error: 'Student record not found.' }, { status: 404 });
     }
 
-    return NextResponse.json({ student });
+    const decryptedStudent = decryptStudentSensitiveData(student);
+
+    return NextResponse.json({ student: decryptedStudent });
   } catch (error: any) {
     if (error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
@@ -152,15 +155,19 @@ export async function PATCH(
       if (updateData.ecetRank !== undefined) updateData.ecetRank = updateData.ecetRank ? parseInt(updateData.ecetRank, 10) : null;
     }
 
+    const dataToSave = encryptStudentSensitiveData(updateData);
+
     const updatedStudent = await prisma.student.update({
       where: { id: studentId },
-      data: updateData,
+      data: dataToSave,
       include: { placement: true, user: { select: { email: true } } },
     });
 
+    const decryptedUpdatedStudent = decryptStudentSensitiveData(updatedStudent);
+
     return NextResponse.json({
       success: true,
-      student: updatedStudent,
+      student: decryptedUpdatedStudent,
       emailVerificationSent,
       pendingEmail: pendingEmailAddress,
       message: emailVerificationSent

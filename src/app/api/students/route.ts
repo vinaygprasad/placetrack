@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, hashPassword } from '@/lib/auth';
 import { Role, PlacementStatus, Prisma } from '@prisma/client';
 import { DEPARTMENTS } from '@/lib/constants';
+import { decryptStudentSensitiveData, encryptSensitive } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,8 +162,10 @@ export async function GET(req: Request) {
     const availableYears = Array.from(yearSet).sort((a, b) => b.localeCompare(a));
     const availableSections = Array.from(secSet).sort();
 
+    const decryptedStudents = students.map((s) => decryptStudentSensitiveData(s));
+
     return NextResponse.json({
-      students,
+      students: decryptedStudents,
       availableYears,
       availableSections,
       pagination: {

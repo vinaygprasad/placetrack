@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
 import { Role, PlacementStatus, Prisma } from '@prisma/client';
 import { generateStudentExcel } from '@/lib/excel';
+import { decryptStudentSensitiveData } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,7 +102,9 @@ export async function GET(req: Request) {
     const exportModeParam = searchParams.get('exportMode') || (searchParams.get('excludePlacement') === 'true' ? 'master' : 'master');
     const exportMode: 'master' | 'placement' = exportModeParam === 'placement' ? 'placement' : 'master';
 
-    const excelBuffer = await generateStudentExcel(students, session.userId, filterDescription, {
+    const decryptedStudents = students.map((s) => decryptStudentSensitiveData(s));
+
+    const excelBuffer = await generateStudentExcel(decryptedStudents, session.userId, filterDescription, {
       exportMode,
     });
 

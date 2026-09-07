@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertModal } from '@/components/ui/alert-modal';
 import { maskPan, maskAadhar, formatPackage, formatDate, getOfferLetterViewUrl, getOfferLetterDownloadUrl } from '@/lib/utils';
+import { SensitiveField } from '@/components/ui/sensitive-field';
 import { DEPARTMENTS } from '@/lib/constants';
 import { useImport, ImportProvider } from '@/context/ImportContext';
 import * as XLSX from 'xlsx';
@@ -1678,12 +1679,12 @@ function AdminStudentsPageContent() {
                       <span className="font-bold text-slate-900">{selectedStudent.currentAddress || '—'}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 block">PAN Card Number</span>
-                      <span className="font-bold font-mono text-slate-900">{maskPan(selectedStudent.panNumber)}</span>
+                      <span className="text-slate-500 block mb-0.5">PAN Card Number</span>
+                      <SensitiveField type="pan" mode="view" value={selectedStudent.panNumber} />
                     </div>
                     <div>
-                      <span className="text-slate-500 block">Aadhar Card Number</span>
-                      <span className="font-bold font-mono text-slate-900">{maskAadhar(selectedStudent.aadharNumber)}</span>
+                      <span className="text-slate-500 block mb-0.5">Aadhar Card Number</span>
+                      <SensitiveField type="aadhar" mode="view" value={selectedStudent.aadharNumber} />
                     </div>
                   </div>
                 </div>
@@ -2200,18 +2201,20 @@ function AdminStudentsPageContent() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                       <div>
                         <label className="text-slate-700 font-bold block mb-1">PAN Card Number</label>
-                        <Input
+                        <SensitiveField
+                          type="pan"
+                          mode="edit"
                           value={editFormData.panNumber}
-                          onChange={(e) => setEditFormData({ ...editFormData, panNumber: e.target.value.toUpperCase() })}
-                          className="bg-slate-50 border-slate-300"
+                          onChange={(val) => setEditFormData({ ...editFormData, panNumber: val })}
                         />
                       </div>
                       <div>
                         <label className="text-slate-700 font-bold block mb-1">Aadhar Card Number</label>
-                        <Input
+                        <SensitiveField
+                          type="aadhar"
+                          mode="edit"
                           value={editFormData.aadharNumber}
-                          onChange={(e) => setEditFormData({ ...editFormData, aadharNumber: e.target.value })}
-                          className="bg-slate-50 border-slate-300"
+                          onChange={(val) => setEditFormData({ ...editFormData, aadharNumber: val })}
                         />
                       </div>
                     </div>
