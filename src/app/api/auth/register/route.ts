@@ -63,7 +63,6 @@ export async function POST(req: Request) {
         data: {
           id: normalizedRollNo,
           role: Role.STUDENT,
-          academicYear,
           email: normalizedEmail,
           passwordHash,
           isVerified: false, // Require email verification
@@ -105,8 +104,6 @@ export async function POST(req: Request) {
     await prisma.emailVerificationToken.create({
       data: {
         userId: user.id,
-        userRole: user.role,
-        userAcademicYear: user.academicYear,
         pendingEmail: normalizedEmail,
         tokenHash,
         expiresAt,

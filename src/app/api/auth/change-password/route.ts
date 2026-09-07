@@ -15,13 +15,7 @@ export async function POST(req: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: {
-        id_role_academicYear: {
-          id: session.userId,
-          role: session.role,
-          academicYear: session.academicYear || 'NA',
-        },
-      },
+      where: { id: session.userId },
     });
 
     if (!user) {
@@ -35,13 +29,7 @@ export async function POST(req: Request) {
 
     const newHash = await hashPassword(newPassword);
     await prisma.user.update({
-      where: {
-        id_role_academicYear: {
-          id: user.id,
-          role: user.role,
-          academicYear: user.academicYear,
-        },
-      },
+      where: { id: user.id },
       data: { passwordHash: newHash },
     });
 

@@ -9,19 +9,12 @@ export async function GET() {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 
-    let user = await prisma.user.findUnique({
-      where: {
-        id_role_academicYear: {
-          id: session.userId,
-          role: session.role,
-          academicYear: session.academicYear || 'NA',
-        },
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
       select: {
         id: true,
         email: true,
         role: true,
-        academicYear: true,
         isActive: true,
         isVerified: true,
         student: {
@@ -29,38 +22,13 @@ export async function GET() {
             id: true,
             name: true,
             surname: true,
+            fullName: true,
             branch: true,
             academicYear: true,
           },
         },
       },
     });
-
-    if (!user && session.userId && session.role) {
-      user = await prisma.user.findFirst({
-        where: {
-          id: session.userId,
-          role: session.role,
-        },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          academicYear: true,
-          isActive: true,
-          isVerified: true,
-          student: {
-            select: {
-              id: true,
-              name: true,
-              surname: true,
-              branch: true,
-              academicYear: true,
-            },
-          },
-        },
-      });
-    }
 
     if (!user || !user.isActive) {
       return NextResponse.json({ authenticated: false }, { status: 401 });
@@ -72,10 +40,10 @@ export async function GET() {
         id: user.id,
         email: user.email,
         role: user.role,
-        academicYear: user.academicYear,
+        academicYear: user.student?.academicYear || null,
         studentId: user.student?.id || null,
         rollNo: user.student?.id || null,
-        name: user.student ? `${user.student.name} ${user.student.surname || ''}`.trim() : 'Admin',
+        name: user.student ? (user.student.fullName || `${user.student.name || ''} ${user.student.surname || ''}`.trim()) : 'Admin',
         branch: user.student?.branch || null,
       },
     });

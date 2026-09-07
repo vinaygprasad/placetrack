@@ -243,7 +243,6 @@ export async function POST(req: Request) {
         data: {
           id: normalizedRollNo,
           role: Role.STUDENT,
-          academicYear: cleanYear,
           email: normalizedEmail,
           passwordHash,
           isVerified: Boolean(normalizedEmail),

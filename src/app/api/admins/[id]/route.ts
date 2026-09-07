@@ -33,19 +33,12 @@ export async function PATCH(
     }
 
     const updatedUser = await prisma.user.update({
-      where: {
-        id_role_academicYear: {
-          id: targetUser.id,
-          role: targetUser.role,
-          academicYear: targetUser.academicYear,
-        },
-      },
+      where: { id: targetUser.id },
       data,
       select: {
         id: true,
         email: true,
         role: true,
-        academicYear: true,
         isActive: true,
         updatedAt: true,
       },

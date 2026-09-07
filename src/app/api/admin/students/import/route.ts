@@ -119,9 +119,15 @@ export async function POST(req: Request) {
         ? sectionRaw.replace(/^sec(tion)?\s*/i, '').trim().toUpperCase()
         : null;
 
-      if (!rollNo || !rawFullName || !deptRaw || !academicYear) {
+      const fullNameCandidate = rawFullName
+        ? rawFullName.trim()
+        : rawGivenName
+        ? `${rawGivenName.trim()} ${rawSurname ? rawSurname.trim() : ''}`.trim()
+        : '';
+
+      if (!rollNo || !fullNameCandidate || !deptRaw || !academicYear) {
         errors.push(
-          `Row ${rowNum}: Skipped - Missing required field(s). Roll Number, Full Name, Department (Dept), and Academic Year are required.`
+          `Row ${rowNum}: Skipped - Missing required field(s). Roll Number, Name, Department (Dept), and Academic Year are required.`
         );
         skippedCount++;
         continue;
@@ -136,12 +142,15 @@ export async function POST(req: Request) {
       );
       const branch = matchedDept || deptRaw;
 
-      // Check if student with rollNo already exists
+      // Check if student or user with rollNo already exists
       const existingStudent = await prisma.student.findUnique({
         where: { id: rollNo },
       });
+      const existingUser = await prisma.user.findFirst({
+        where: { id: rollNo },
+      });
 
-      if (existingStudent) {
+      if (existingStudent || existingUser) {
         errors.push(`Row ${rowNum}: Skipped - Roll No "${rollNo}" already exists.`);
         skippedCount++;
         continue;
@@ -155,14 +164,13 @@ export async function POST(req: Request) {
             data: {
               id: rollNo,
               role: 'STUDENT',
-              academicYear: cleanYear,
               passwordHash,
               isVerified: false,
               firstLogin: true,
             },
           });
 
-          const derivedFullName = rawFullName.trim();
+          const derivedFullName = fullNameCandidate;
           const student = await tx.student.create({
             data: {
               id: rollNo,

@@ -33,8 +33,6 @@ export async function POST(req: Request) {
     await prisma.passwordResetToken.deleteMany({
       where: {
         userId: user.id,
-        userRole: user.role,
-        userAcademicYear: user.academicYear,
       },
     });
 
@@ -42,8 +40,6 @@ export async function POST(req: Request) {
     await prisma.passwordResetToken.create({
       data: {
         userId: user.id,
-        userRole: user.role,
-        userAcademicYear: user.academicYear,
         tokenHash,
         expiresAt,
       },

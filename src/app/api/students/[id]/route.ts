@@ -19,7 +19,7 @@ export async function GET(
       where: { id: studentId },
       include: {
         user: {
-          select: { id: true, email: true, isVerified: true, isActive: true, role: true, academicYear: true },
+          select: { id: true, email: true, isVerified: true, isActive: true, role: true },
         },
         placement: true,
         offerLetters: {
@@ -82,7 +82,7 @@ export async function PATCH(
           const existingUser = await prisma.user.findFirst({
             where: {
               email: newEmail,
-              NOT: { id: session.userId, role: session.role, academicYear: session.academicYear },
+              NOT: { id: session.userId },
             },
           });
 
@@ -99,14 +99,12 @@ export async function PATCH(
           const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
           await prisma.emailVerificationToken.deleteMany({
-            where: { userId: session.userId, userRole: session.role, userAcademicYear: session.academicYear || 'NA' },
+            where: { userId: session.userId },
           });
 
           await prisma.emailVerificationToken.create({
             data: {
               userId: session.userId,
-              userRole: session.role,
-              userAcademicYear: session.academicYear || 'NA',
               pendingEmail: newEmail,
               tokenHash,
               expiresAt,
@@ -129,13 +127,7 @@ export async function PATCH(
       if (body.email !== undefined) {
         const adminNewEmail = body.email ? String(body.email).toLowerCase().trim() : null;
         await prisma.user.update({
-          where: {
-            id_role_academicYear: {
-              id: studentId,
-              role: Role.STUDENT,
-              academicYear: existingStudent.academicYear,
-            },
-          },
+          where: { id: studentId },
           data: { email: adminNewEmail },
         });
         delete updateData.email;
@@ -205,13 +197,7 @@ export async function DELETE(
 
     // Deleting User automatically cascades to Student, Placement, OfferLetter
     await prisma.user.delete({
-      where: {
-        id_role_academicYear: {
-          id: studentId,
-          role: Role.STUDENT,
-          academicYear: student.academicYear,
-        },
-      },
+      where: { id: studentId },
     });
 
     return NextResponse.json({ success: true, message: 'Student record deleted successfully.' });

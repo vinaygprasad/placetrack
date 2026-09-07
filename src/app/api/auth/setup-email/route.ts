@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const existingUser = await prisma.user.findFirst({
       where: {
         email: cleanEmail,
-        NOT: { id: session.userId, role: session.role, academicYear: session.academicYear },
+        NOT: { id: session.userId },
       },
     });
 
@@ -45,15 +45,13 @@ export async function POST(req: Request) {
 
     // Delete existing unused tokens for this user
     await prisma.emailVerificationToken.deleteMany({
-      where: { userId: session.userId, userRole: session.role, userAcademicYear: session.academicYear || 'NA' },
+      where: { userId: session.userId },
     });
 
     // Store token in database with pending email address
     await prisma.emailVerificationToken.create({
       data: {
         userId: session.userId,
-        userRole: session.role,
-        userAcademicYear: session.academicYear || 'NA',
         pendingEmail: cleanEmail,
         tokenHash,
         expiresAt,

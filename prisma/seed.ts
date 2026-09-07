@@ -14,13 +14,7 @@ async function main() {
   }
 
   const existingSuperAdmin = await prisma.user.findUnique({
-    where: {
-      id_role_academicYear: {
-        id: 'SUPER_ADMIN',
-        role: Role.SUPER_ADMIN,
-        academicYear: 'NA',
-      },
-    },
+    where: { id: 'SUPER_ADMIN' },
   });
 
   if (!existingSuperAdmin) {
@@ -29,7 +23,6 @@ async function main() {
       data: {
         id: 'SUPER_ADMIN',
         role: Role.SUPER_ADMIN,
-        academicYear: 'NA',
         email: superAdminEmail,
         passwordHash,
         isVerified: true,
@@ -37,7 +30,7 @@ async function main() {
         isActive: true,
       },
     });
-    console.log(`✅ Initial Super Admin created with ID "SUPER_ADMIN", Academic Year "NA", and Email: ${superAdmin.email}`);
+    console.log(`✅ Initial Super Admin created with ID "SUPER_ADMIN" and Email: ${superAdmin.email}`);
   } else {
     console.log(`ℹ️ Super Admin already exists: ${superAdminEmail}`);
   }

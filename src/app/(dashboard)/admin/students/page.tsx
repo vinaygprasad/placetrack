@@ -129,7 +129,7 @@ export default function AdminStudentsPage() {
   });
 
   // Global Background Excel Import Context
-  const { importing, startBatchImport, dismissImportSummary } = useImport();
+  const { importing, importProgress, importSummary, startBatchImport, dismissImportSummary } = useImport();
 
   // Bulk Excel Import State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -237,6 +237,13 @@ export default function AdminStudentsPage() {
     fetchStudents();
   }, [page, limit, deptKey, yearKey, secKey, selectedStatus, sortBy, sortOrder]);
 
+  // Automatically pop open confirmation modal when import finishes at 100%
+  useEffect(() => {
+    if (importSummary && !importing) {
+      setIsImportModalOpen(true);
+    }
+  }, [importSummary, importing]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (page !== 1) {
@@ -335,9 +342,30 @@ export default function AdminStudentsPage() {
     e.preventDefault();
     if (!importFile) return;
 
-    setIsImportModalOpen(false);
-    startBatchImport(importFile, fetchStudents);
-    setImportFile(null);
+    try {
+      const buffer = await importFile.arrayBuffer();
+      const data = new Uint8Array(buffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+
+      if (!sheetName) {
+        showAlert('The uploaded Excel file contains no valid sheets.', 'error', 'Invalid File');
+        return;
+      }
+
+      const sheet = workbook.Sheets[sheetName];
+      const allRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      if (!allRows || allRows.length === 0) {
+        showAlert('No data rows found in the uploaded Excel spreadsheet.', 'error', 'Empty File');
+        return;
+      }
+
+      startBatchImport(allRows, fetchStudents);
+    } catch (err: any) {
+      console.error('Error reading excel file:', err);
+      showAlert('Failed to read Excel file: ' + (err.message || String(err)), 'error', 'File Read Error');
+    }
   };
 
   // Open View Drawer with default tab
@@ -742,7 +770,6 @@ export default function AdminStudentsPage() {
           </Button>
         </div>
       </div>
-
 
       {/* Filter and Search Bar Panel */}
       <Card className="glass-card relative z-30 overflow-visible bg-white border-slate-200 shadow-sm">
@@ -2507,119 +2534,246 @@ export default function AdminStudentsPage() {
 
       {/* BULK EXCEL IMPORT MODAL */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xl space-y-4 p-6 text-slate-900 relative">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 font-bold text-[#1e3a8a] text-base">
-                <FileSpreadsheet className="h-5 w-5 text-[#1e3a8a]" />
-                Bulk Import Student Accounts (Excel)
+              <div className="flex items-center gap-2 font-bold text-[#1e3a8a] text-base min-w-0">
+                {importing ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin text-[#1e3a8a] shrink-0" />
+                    <span className="truncate">Importing Student Accounts...</span>
+                  </>
+                ) : importSummary ? (
+                  <>
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                    <span className="truncate">Bulk Import Task Completed</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-5 w-5 text-[#1e3a8a] shrink-0" />
+                    <span className="truncate">Bulk Import Student Accounts (Excel)</span>
+                  </>
+                )}
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  setIsImportModalOpen(false);
-                }}
+                onClick={() => setIsImportModalOpen(false)}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Upload an Excel spreadsheet with columns: <span className="font-bold text-[#1e3a8a]">Roll No</span>,{' '}
-              <span className="font-bold text-[#1e3a8a]">Full Name</span>,{' '}
-              <span className="font-bold text-[#1e3a8a]">Dept</span>,{' '}
-              <span className="font-bold text-[#1e3a8a]">Section</span>, and{' '}
-              <span className="font-bold text-[#1e3a8a]">Academic Year</span>.
-            </p>
+            {/* Modal Body */}
+            {importing ? (
+              /* LIVE IMPORT PROGRESS VIEW */
+              <div className="space-y-4 py-2">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-600">Overall Progress</span>
+                  <span className="text-[#1e3a8a] text-sm">{importProgress.percentage}%</span>
+                </div>
 
-            <div className="flex justify-start">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadTemplate}
-                className="gap-2 border-slate-300 text-slate-700 hover:text-slate-900 font-bold text-xs"
-              >
-                <Download className="h-4 w-4 text-emerald-600" />
-                Download Excel Template
-              </Button>
-            </div>
-
-            <form onSubmit={handleImportSubmit} className="space-y-4 pt-2">
-              {!importFile ? (
-                <label className="border-2 border-dashed border-slate-300 hover:border-[#1e3a8a] rounded-xl p-6 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/50 transition-colors cursor-pointer group">
-                  <Input
-                    type="file"
-                    accept=".xlsx, .xls"
-                    onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)}
-                    required
-                    className="hidden"
+                {/* Animated Progress Bar */}
+                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200 p-0.5 shadow-inner">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#1e3a8a] to-blue-500 rounded-full transition-all duration-300 ease-out shadow-sm"
+                    style={{ width: `${importProgress.percentage}%` }}
                   />
-                  <div className="h-12 w-12 rounded-full bg-blue-100 group-hover:bg-blue-200 text-[#1e3a8a] flex items-center justify-center mb-3 transition-colors">
-                    <UploadCloud className="h-6 w-6" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold tracking-wider uppercase">Current Batch</span>
+                    <span className="font-extrabold text-slate-900 text-xs">
+                      Batch {importProgress.currentBatch} of {importProgress.totalBatches}
+                    </span>
                   </div>
-                  <p className="text-sm font-bold text-slate-800 group-hover:text-[#1e3a8a]">
-                    Click to select Excel file
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">Supports .xlsx and .xls formats</p>
-                </label>
-              ) : (
-                <div className="border-2 border-emerald-300/80 bg-emerald-50/70 rounded-xl p-4 flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-10 w-10 shrink-0 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                      <FileSpreadsheet className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-slate-900 truncate">{importFile.name}</p>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-                          <CheckCircle2 className="h-3 w-3" /> Ready
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {(importFile.size / 1024).toFixed(1)} KB • Click "Start Import" below to run in background
-                      </p>
-                    </div>
+                  <div className="text-right">
+                    <span className="text-slate-400 block text-[10px] font-bold tracking-wider uppercase">Records Processed</span>
+                    <span className="font-extrabold text-slate-900 text-xs">
+                      {importProgress.processed} / {importProgress.total}
+                    </span>
                   </div>
+                </div>
+
+                <p className="text-xs text-slate-500 italic bg-blue-50/70 p-3 rounded-xl border border-blue-100 text-center">
+                  ⚡ Import is processing in background. You can close this modal at any time.
+                </p>
+
+                <div className="flex justify-end pt-2">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsImportModalOpen(false)}
+                    className="font-bold text-xs"
+                  >
+                    Run in Background (Close Modal)
+                  </Button>
+                </div>
+              </div>
+            ) : importSummary ? (
+              /* COMPLETED SUMMARY VIEW */
+              <div className="space-y-4 py-2">
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-2">
+                  <div className="flex items-center justify-between font-extrabold text-sm">
+                    <span className="text-emerald-800">Accounts Created:</span>
+                    <span className="text-emerald-700 text-base">{importSummary.imported}</span>
+                  </div>
+                  {importSummary.skipped > 0 && (
+                    <div className="flex items-center justify-between font-bold text-amber-800 pt-1.5 border-t border-emerald-200/60">
+                      <span>Skipped / Duplicates:</span>
+                      <span>{importSummary.skipped}</span>
+                    </div>
+                  )}
+                </div>
+
+                {importSummary.errors && importSummary.errors.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        Skipped Records & Error Log ({importSummary.errors.length})
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto p-3 bg-slate-900 text-amber-300 rounded-xl text-xs font-mono space-y-1 shadow-inner border border-slate-800">
+                      {importSummary.errors.map((err: string, i: number) => (
+                        <div key={i} className="leading-relaxed border-b border-slate-800/60 pb-1 last:border-b-0">
+                          {err}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       setImportFile(null);
                       dismissImportSummary();
                     }}
-                    className="text-slate-500 hover:text-red-600 hover:bg-red-50 text-xs font-semibold gap-1 shrink-0 ml-2"
+                    className="font-bold text-xs"
                   >
-                    <X className="h-4 w-4" />
-                    Change File
+                    Import Another File
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="gradient"
+                    size="sm"
+                    onClick={() => {
+                      dismissImportSummary();
+                      setIsImportModalOpen(false);
+                    }}
+                    className="font-bold text-xs px-6"
+                  >
+                    Done / Close Modal
                   </Button>
                 </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="text-slate-600 font-bold text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={!importFile || importing}
-                  variant="gradient"
-                  size="sm"
-                  className="font-bold text-xs gap-1.5 px-5"
-                >
-                  <UploadCloud className="h-4 w-4" />
-                  Start Background Import
-                </Button>
               </div>
-            </form>
+            ) : (
+              /* INITIAL UPLOAD FORM VIEW */
+              <>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Upload an Excel spreadsheet with columns: <span className="font-bold text-[#1e3a8a]">Roll No</span>,{' '}
+                  <span className="font-bold text-[#1e3a8a]">Full Name</span>,{' '}
+                  <span className="font-bold text-[#1e3a8a]">Dept</span>,{' '}
+                  <span className="font-bold text-[#1e3a8a]">Section</span>, and{' '}
+                  <span className="font-bold text-[#1e3a8a]">Academic Year</span>.
+                </p>
+
+                <div className="flex justify-start">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadTemplate}
+                    className="gap-2 border-slate-300 text-slate-700 hover:text-slate-900 font-bold text-xs"
+                  >
+                    <Download className="h-4 w-4 text-emerald-600" />
+                    Download Excel Template
+                  </Button>
+                </div>
+
+                <form onSubmit={handleImportSubmit} className="space-y-4 pt-2">
+                  {!importFile ? (
+                    <label className="border-2 border-dashed border-slate-300 hover:border-[#1e3a8a] rounded-xl p-6 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/50 transition-colors cursor-pointer group">
+                      <Input
+                        type="file"
+                        accept=".xlsx, .xls"
+                        onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)}
+                        required
+                        className="hidden"
+                      />
+                      <div className="h-12 w-12 rounded-full bg-blue-100 group-hover:bg-blue-200 text-[#1e3a8a] flex items-center justify-center mb-3 transition-colors">
+                        <UploadCloud className="h-6 w-6" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800 group-hover:text-[#1e3a8a]">
+                        Click to select Excel file
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">Supports .xlsx and .xls formats</p>
+                    </label>
+                  ) : (
+                    <div className="border-2 border-emerald-300/80 bg-emerald-50/70 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 shrink-0 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                          <FileSpreadsheet className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-slate-900 truncate">{importFile.name}</p>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                              <CheckCircle2 className="h-3 w-3" /> Ready
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {(importFile.size / 1024).toFixed(1)} KB • Click "Start Import" below
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setImportFile(null);
+                          dismissImportSummary();
+                        }}
+                        className="text-slate-500 hover:text-red-600 hover:bg-red-50 text-xs font-semibold gap-1 shrink-0 ml-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Change File
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsImportModalOpen(false)}
+                      className="text-slate-600 font-bold text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={!importFile || importing}
+                      variant="gradient"
+                      size="sm"
+                      className="font-bold text-xs gap-1.5 px-5"
+                    >
+                      <UploadCloud className="h-4 w-4" />
+                      Start Import
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

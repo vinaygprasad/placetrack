@@ -27,11 +27,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Navbar
         user={{
           id: session.userId,
-          name: fullName || session.rollNo || session.userId,
+          name: fullName || session.userId,
           fullName: fullName,
           email: session.email,
           role: session.role,
-          rollNo: session.rollNo || session.userId,
+          rollNo: session.userId,
         }}
       />
       <div className="flex-1 flex bg-slate-50 text-slate-900">{children}</div>

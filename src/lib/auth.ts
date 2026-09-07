@@ -10,10 +10,7 @@ const TOKEN_COOKIE_NAME = 'placetrack_session';
 export interface UserSessionPayload {
   userId: string;
   role: Role;
-  academicYear: string;
   email?: string | null;
-  studentId?: string | null;
-  rollNo?: string | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -69,29 +66,10 @@ export async function requireAuth(allowedRoles?: Role[]): Promise<UserSessionPay
     throw new Error('UNAUTHORIZED');
   }
 
-  let user = await prisma.user.findUnique({
-    where: {
-      id_role_academicYear: {
-        id: session.userId,
-        role: session.role,
-        academicYear: session.academicYear || 'NA',
-      },
-    },
-    select: { id: true, role: true, academicYear: true, isActive: true, isVerified: true },
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, role: true, isActive: true, isVerified: true },
   });
-
-  if (!user && session.userId && session.role) {
-    user = await prisma.user.findFirst({
-      where: {
-        id: session.userId,
-        role: session.role,
-      },
-      select: { id: true, role: true, academicYear: true, isActive: true, isVerified: true },
-    });
-    if (user) {
-      session.academicYear = user.academicYear;
-    }
-  }
 
   if (!user || !user.isActive) {
     throw new Error('UNAUTHORIZED');
@@ -118,7 +96,7 @@ export async function requireStudentOwnership(targetStudentId: string): Promise<
   }
 
   if (session.role === Role.STUDENT) {
-    if (session.userId !== targetStudentId && session.studentId !== targetStudentId) {
+    if (session.userId !== targetStudentId) {
       throw new Error('FORBIDDEN');
     }
     return session;

@@ -15,7 +15,6 @@ export async function GET() {
         id: true,
         email: true,
         role: true,
-        academicYear: true,
         isActive: true,
         isVerified: true,
         createdAt: true,
@@ -55,13 +54,7 @@ export async function POST(req: Request) {
     const assignedRole = role === 'SUPER_ADMIN' ? Role.SUPER_ADMIN : Role.ADMIN;
 
     const existingId = await prisma.user.findUnique({
-      where: {
-        id_role_academicYear: {
-          id: normalizedEmpId,
-          role: assignedRole,
-          academicYear: 'NA',
-        },
-      },
+      where: { id: normalizedEmpId },
     });
     if (existingId) {
       return NextResponse.json({ error: `An admin account with Employee ID "${normalizedEmpId}" already exists.` }, { status: 400 });
@@ -78,7 +71,6 @@ export async function POST(req: Request) {
       data: {
         id: normalizedEmpId,
         role: assignedRole,
-        academicYear: 'NA',
         email: normalizedEmail,
         passwordHash,
         isVerified: true,
@@ -89,7 +81,6 @@ export async function POST(req: Request) {
         id: true,
         email: true,
         role: true,
-        academicYear: true,
         isActive: true,
         createdAt: true,
       },

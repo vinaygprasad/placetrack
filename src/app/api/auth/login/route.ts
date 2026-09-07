@@ -93,10 +93,7 @@ export async function POST(req: Request) {
     const sessionPayload = {
       userId: user.id,
       role: user.role,
-      academicYear: user.academicYear,
       email: user.email,
-      studentId: user.student?.id || null,
-      rollNo: user.student?.id || null,
     };
 
     await setSessionCookie(sessionPayload);
@@ -110,7 +107,7 @@ export async function POST(req: Request) {
       user: {
         id: user.id,
         role: user.role,
-        academicYear: user.academicYear,
+        academicYear: user.student?.academicYear || null,
         email: user.email,
         studentId: user.student?.id || null,
         rollNo: user.student?.id || null,

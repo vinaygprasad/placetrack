@@ -34,13 +34,7 @@ export async function POST(req: Request) {
 
     await prisma.$transaction([
       prisma.user.update({
-        where: {
-          id_role_academicYear: {
-            id: record.userId,
-            role: record.userRole,
-            academicYear: record.userAcademicYear,
-          },
-        },
+        where: { id: record.userId },
         data: {
           email: targetEmail,
           isVerified: true,

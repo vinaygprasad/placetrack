@@ -59,7 +59,7 @@ export async function GET(
     }
 
     // Access control: Only Super Admin, Admin, or target Student can view
-    if (session.role === 'STUDENT' && studentId && session.studentId !== studentId) {
+    if (session.role === 'STUDENT' && studentId && session.userId !== studentId) {
       return NextResponse.json({ error: 'Access denied.' }, { status: 403 });
     }
 

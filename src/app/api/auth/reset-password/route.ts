@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     // Update password & invalidate token inside transaction
     await prisma.$transaction([
       prisma.user.update({
-        where: { id_role_academicYear: { id: resetRecord.userId, role: resetRecord.userRole, academicYear: resetRecord.userAcademicYear } },
+        where: { id: resetRecord.userId },
         data: { passwordHash: newPasswordHash },
       }),
       prisma.passwordResetToken.update({
