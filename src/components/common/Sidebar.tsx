@@ -27,14 +27,14 @@ export function Sidebar({ role }: SidebarProps) {
       icon: LayoutDashboard,
     },
     {
-      title: 'Student Records',
+      title: 'Student Placements',
       href: '/admin/students',
       icon: Users,
     },
     ...(role === 'SUPER_ADMIN'
       ? [
           {
-            title: 'Admin Accounts',
+            title: 'Manage Admins',
             href: '/admin/admins',
             icon: ShieldCheck,
           },

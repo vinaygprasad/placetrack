@@ -26,10 +26,11 @@ export function Navbar({ user }: NavbarProps) {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-      router.refresh();
     } catch (e) {
       console.error('Logout error:', e);
+    } finally {
+      router.push('/login');
+      router.refresh();
     }
   };
 

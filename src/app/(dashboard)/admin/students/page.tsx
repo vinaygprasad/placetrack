@@ -9,7 +9,7 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertModal } from '@/components/ui/alert-modal';
 import { maskPan, maskAadhar, formatPackage, formatDate, getOfferLetterViewUrl, getOfferLetterDownloadUrl } from '@/lib/utils';
 import { SensitiveField } from '@/components/ui/sensitive-field';
-import { DEPARTMENTS } from '@/lib/constants';
+import { DEPARTMENTS, DOCUMENT_TYPES } from '@/lib/constants';
 import { useImport, ImportProvider } from '@/context/ImportContext';
 import * as XLSX from 'xlsx';
 import {
@@ -442,6 +442,7 @@ function AdminStudentsPageContent() {
           id: o.id,
           companyName: o.companyName || '',
           packageOffered: o.packageOffered ?? '',
+          documentType: o.documentType || 'OL',
           documentFileName: o.documentFileName || '',
           googleDriveFileId: o.googleDriveFileId || '',
         }))
@@ -450,6 +451,7 @@ function AdminStudentsPageContent() {
           id: 'primary',
           companyName: student.placement.companyName,
           packageOffered: student.placement.packageOffered ?? '',
+          documentType: 'OL',
           googleDriveFileId: student.placement.googleDriveFileId || '',
         }]
       : [];
@@ -702,7 +704,7 @@ function AdminStudentsPageContent() {
       />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Student Data Management</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Student Placements</h1>
           <p className="text-sm text-slate-500 mt-1">Bulk import, select records, multi-filter, search, edit and export student records</p>
         </div>
 
@@ -1448,48 +1450,76 @@ function AdminStudentsPageContent() {
               </Button>
             </div>
 
-            {/* View Drawer Tabs */}
-            <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-100/70 p-2 gap-1.5">
-              <button
-                onClick={() => setViewDrawerTab('personal')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  viewDrawerTab === 'personal' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <User className="h-3.5 w-3.5" /> Personal
-              </button>
-              <button
-                onClick={() => setViewDrawerTab('academic')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  viewDrawerTab === 'academic' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <GraduationCap className="h-3.5 w-3.5" /> Academic
-              </button>
-              <button
-                onClick={() => setViewDrawerTab('family')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  viewDrawerTab === 'family' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <Users className="h-3.5 w-3.5" /> Family
-              </button>
-              <button
-                onClick={() => setViewDrawerTab('address')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  viewDrawerTab === 'address' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <Home className="h-3.5 w-3.5" /> Address & ID
-              </button>
-              <button
-                onClick={() => setViewDrawerTab('placement')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  viewDrawerTab === 'placement' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <Briefcase className="h-3.5 w-3.5" /> Placement
-              </button>
+            {/* View Drawer Split Section Tabs: Master Database vs Placement Details */}
+            <div className="border-b border-slate-200 bg-slate-100/70 p-2 space-y-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (viewDrawerTab === 'placement') setViewDrawerTab('personal');
+                  }}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+                    viewDrawerTab !== 'placement'
+                      ? 'bg-[#1e3a8a] text-white shadow-sm'
+                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  <User className="h-4 w-4" /> Master Database
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewDrawerTab('placement')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+                    viewDrawerTab === 'placement'
+                      ? 'bg-[#1e3a8a] text-white shadow-sm'
+                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  <Briefcase className="h-4 w-4" /> Placement Details
+                </button>
+              </div>
+
+              {/* Sub-tabs under Master Database */}
+              {viewDrawerTab !== 'placement' && (
+                <div className="flex overflow-x-auto gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setViewDrawerTab('personal')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      viewDrawerTab === 'personal' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <User className="h-3 w-3" /> Personal Info
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewDrawerTab('academic')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      viewDrawerTab === 'academic' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <GraduationCap className="h-3 w-3" /> Academic Records
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewDrawerTab('family')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      viewDrawerTab === 'family' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <Users className="h-3 w-3" /> Family Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewDrawerTab('address')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      viewDrawerTab === 'address' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <Home className="h-3 w-3" /> Address & ID
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* View Drawer Content Body */}
@@ -1802,53 +1832,76 @@ function AdminStudentsPageContent() {
               </Button>
             </div>
 
-            {/* Modal Navigation Tabs */}
-            <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-100/70 p-2 gap-1.5">
-              <button
-                type="button"
-                onClick={() => setEditModalTab('personal')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  editModalTab === 'personal' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <User className="h-3.5 w-3.5" /> Personal & Credentials
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditModalTab('academic')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  editModalTab === 'academic' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <GraduationCap className="h-3.5 w-3.5" /> Academic Records
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditModalTab('family')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  editModalTab === 'family' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <Users className="h-3.5 w-3.5" /> Family Details
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditModalTab('address')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  editModalTab === 'address' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <Home className="h-3.5 w-3.5" /> Address & ID
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditModalTab('placement')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  editModalTab === 'placement' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-slate-600 hover:bg-white/50'
-                }`}
-              >
-                <Briefcase className="h-3.5 w-3.5" /> Placement Status
-              </button>
+            {/* Modal Navigation Tabs: Split into Master Database vs Placement Details */}
+            <div className="border-b border-slate-200 bg-slate-100/70 p-3 space-y-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editModalTab === 'placement') setEditModalTab('personal');
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+                    editModalTab !== 'placement'
+                      ? 'bg-[#1e3a8a] text-white shadow-sm'
+                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  <User className="h-4 w-4" /> Master Database
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditModalTab('placement')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+                    editModalTab === 'placement'
+                      ? 'bg-[#1e3a8a] text-white shadow-sm'
+                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  }`}
+                >
+                  <Briefcase className="h-4 w-4" /> Placement Details
+                </button>
+              </div>
+
+              {/* Sub-tabs under Master Database */}
+              {editModalTab !== 'placement' && (
+                <div className="flex overflow-x-auto gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditModalTab('personal')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      editModalTab === 'personal' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <User className="h-3 w-3" /> Personal Info
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditModalTab('academic')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      editModalTab === 'academic' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <GraduationCap className="h-3 w-3" /> Academic Records
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditModalTab('family')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      editModalTab === 'family' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <Users className="h-3 w-3" /> Family Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditModalTab('address')}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                      editModalTab === 'address' ? 'bg-white text-[#1e3a8a] shadow-xs border border-blue-200 font-extrabold' : 'text-slate-600 hover:bg-white/60'
+                    }`}
+                  >
+                    <Home className="h-3 w-3" /> Address & ID
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Modal Form */}
@@ -2228,7 +2281,6 @@ function AdminStudentsPageContent() {
                         <h3 className="font-extrabold text-[#1e3a8a] uppercase tracking-wider text-[11px]">
                           Placement Offers Management
                         </h3>
-                        <p className="text-[11px] text-slate-500">Manage multiple placement offers for this student</p>
                       </div>
                       <div className="w-44">
                         <select
@@ -2237,7 +2289,7 @@ function AdminStudentsPageContent() {
                             const newStatus = e.target.value;
                             setEditFormData({ ...editFormData, placementStatus: newStatus });
                             if (newStatus === 'PLACED' && editOffers.length === 0) {
-                              setEditOffers([{ companyName: '', packageOffered: '' }]);
+                              setEditOffers([{ companyName: '', packageOffered: '', documentType: 'OL' }]);
                             }
                           }}
                           className="w-full h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs font-bold text-slate-900"
@@ -2257,7 +2309,7 @@ function AdminStudentsPageContent() {
                           size="sm"
                           onClick={() => {
                             setEditFormData({ ...editFormData, placementStatus: 'PLACED' });
-                            setEditOffers([{ companyName: '', packageOffered: '' }]);
+                            setEditOffers([{ companyName: '', packageOffered: '', documentType: 'OL' }]);
                           }}
                           className="font-bold text-xs gap-1 border-blue-300 text-[#1e3a8a]"
                         >
@@ -2290,7 +2342,7 @@ function AdminStudentsPageContent() {
                               </Button>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div>
                                 <label className="text-slate-700 font-bold block mb-1">Company Name *</label>
                                 <Input
@@ -2319,6 +2371,24 @@ function AdminStudentsPageContent() {
                                   }}
                                   className="bg-white border-slate-300 text-xs"
                                 />
+                              </div>
+                              <div>
+                                <label className="text-slate-700 font-bold block mb-1">Document Type *</label>
+                                <select
+                                  value={offer.documentType || 'OL'}
+                                  onChange={(e) => {
+                                    const updated = [...editOffers];
+                                    updated[idx].documentType = e.target.value;
+                                    setEditOffers(updated);
+                                  }}
+                                  className="w-full h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs font-bold text-slate-900"
+                                >
+                                  {DOCUMENT_TYPES.map((doc) => (
+                                    <option key={doc.code} value={doc.code}>
+                                      {doc.label}
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
                             </div>
 
@@ -2353,7 +2423,7 @@ function AdminStudentsPageContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setEditOffers([...editOffers, { companyName: '', packageOffered: '' }]);
+                            setEditOffers([...editOffers, { companyName: '', packageOffered: '', documentType: 'OL' }]);
                             setEditFormData({ ...editFormData, placementStatus: 'PLACED' });
                           }}
                           className="w-full py-2.5 font-bold text-xs gap-1.5 border-dashed border-slate-300 hover:border-[#1e3a8a] text-[#1e3a8a]"

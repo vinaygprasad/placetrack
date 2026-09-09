@@ -1,5 +1,5 @@
 import React from 'react';
-import { getSession } from '@/lib/auth';
+import { getSession, clearSessionCookie } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Navbar } from '@/components/common/Navbar';
 import { prisma } from '@/lib/prisma';
@@ -8,6 +8,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await getSession();
 
   if (!session) {
+    await clearSessionCookie();
     redirect('/login');
   }
 
